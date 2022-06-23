@@ -29,6 +29,25 @@ Router.get('/:catid', (req, res)=>{
     
 })
 
+//Get categories for a specific user
+Router.get('/user/:username', async(req, res)=>{
+    const {username} = req.params
+
+    const user = await User.findOne({username: username})
+
+    if(user !== null){
+        Category
+        .find({user: user._id})
+        .then(categories => {
+            res.json(categories)
+        })
+        .catch(err => {
+            res.status(400).json(`Error: ${err}`)
+        })
+    }else{
+        res.status(400).json('Not a valid user')
+    }
+})
 
 
 //--------------------------------------------------------------------
@@ -49,7 +68,7 @@ Router.post('/', async(req, res)=>{
         const newCategory = new Category({
             name: name,
             type: type,
-            user: user.id
+            user: user._id
         })
 
         //Adding a category
@@ -142,11 +161,7 @@ Router.delete('/:catid', async(req, res)=>{
             await Transaction.findOneAndDelete({_id: tId})
         }) 
 
-        res.json({
-            uResponse: uResponse,
-            cResponse: category,
-            msg: 'Deleted the transactions and updated user'
-        })
+        res.json(category)
         
     })
     .catch(err => res.status(400).json(err))

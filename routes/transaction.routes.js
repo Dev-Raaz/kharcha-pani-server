@@ -16,6 +16,20 @@ Router.get('/', (req, res)=>{
     .catch(err => res.status(400).json(`Error in getting all transactions: ${err}`))
 })
 
+//Get transactions for a user
+Router.get('/user/:username', async(req, res)=>{
+    const {username} = req.params
+    const user = await User.findOne({username: username}) 
+    
+    if(user != null){
+        Transaction
+        .find({user: user._id})
+        .then(transactions => res.json(transactions))
+        .catch(err => res.status(400).json(`Error in getting all transactions: ${err}`))
+    }
+})
+
+
 //Get Specific transaction
 Router.get('/:tid', (req, res)=>{
     const {tid} = req.params
@@ -40,7 +54,7 @@ Router.get('/:tid', (req, res)=>{
 
 //Add A transaction
 Router.post('/', async(req, res)=>{
-    const {title, amount, description, imgSrc, user, category} = req.body
+    const {title, amount, description, user, category} = req.body
 
     //Getting the user and category for the transaction
     const tUser = await User.findOne({username: user})
@@ -51,13 +65,14 @@ Router.post('/', async(req, res)=>{
         title: title,
         amount: amount,
         description: description === null || description === "" ? "" : description,
-        imgSrc: imgSrc === null || imgSrc === "" ? "" : imgSrc,
         user: tUser._id,
-        category: category
+        category: category,
+        type: tCategory.type
     })
 
     try{
         const tResponse = await newTransaction.save()
+        
         const uResponse = await User.findOneAndUpdate({username: user},{
             transactions: [...tUser.transactions, tResponse._id]
         }, {new: true})
@@ -65,11 +80,17 @@ Router.post('/', async(req, res)=>{
             transactions: [...tCategory.transactions, tResponse._id]
         }, {new: true})
 
-        res.json({
-            tResponse: tResponse,
-            uResponse: uResponse,
-            cResponse: cResponse
-        })
+        if(tResponse.type == 'expense'){
+            await User.findOneAndUpdate({username: user},{
+                balance: tUser.balance - tResponse.amount
+            })
+        }else{
+            await User.findOneAndUpdate({username: user},{
+                balance: tUser.balance + tResponse.amount
+            })
+        }
+
+        res.json(tResponse)
         
     }
     catch(err){
@@ -86,19 +107,48 @@ Router.post('/', async(req, res)=>{
 //--------------------------------------------------------------------
 
 //update a user
-Router.patch('/:tid', (req, res)=>{
+Router.patch('/:tid', async(req, res)=>{
     const {tid} = req.params
 
-    const {title, amount, description, imgSrc} = req.body
+    const {title, amount, description} = req.body
+    const transaction = await Transaction.findOne({_id: tid})
+    const user = await User.findOne({_id: transaction.user})
 
     Transaction
     .findOneAndUpdate({_id: tid},{
         title: title,
         amount: amount,
-        description: description,
-        imgSrc: imgSrc
+        description: description
     }, {new: true})
-    .then(transaction => res.json(transaction))
+    .then(newTransaction => {
+
+        let updateFactor = 0
+        console.log(newTransaction.amount)
+        console.log(transaction.amount)
+
+        if(transaction.type == 'expense'){
+            if(newTransaction.amount >= transaction.amount){
+                console.log('1 got')
+                updateFactor = -(newTransaction.amount - transaction.amount)
+            }else{
+                console.log('2 got')
+                updateFactor = transaction.amount -  newTransaction.amount
+            }
+        }else{
+            //Income Amount
+            console.log('3 got')
+            updateFactor = newTransaction.amount - transaction.amount
+        }
+
+        console.log('Update Factor')
+        console.log(updateFactor)
+
+
+        User.findOneAndUpdate({_id: transaction.user},{
+            balance: user.balance + updateFactor
+        }, {new: true})
+        .then(newUser=>res.json(newTransaction))
+    })
     .catch(err => res.status(400).json(`Error occured while updating transaction: ${err}`))
     
 })
@@ -135,13 +185,19 @@ Router.delete('/:tid', (req, res)=>{
             transactions: catTransactions
         }, {new: true})
 
+        if(transaction.type == 'income'){
+            await User.findOneAndUpdate({_id: transaction.user},{
+                balance: tUser.balance - transaction.amount
+            })
+        }else{
+            await User.findOneAndUpdate({_id: transaction.user},{
+                balance: tUser.balance + transaction.amount
+            })
+        }
+
 
         //Sending the response
-        res.json({
-            uResponse: uResponse,
-            cResponse: cResponse,
-            tResponse: transaction
-        })
+        res.json(transaction)
     })
     .catch(err => res.status(400).json(err))
 })

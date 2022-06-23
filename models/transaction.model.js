@@ -10,6 +10,11 @@ const transactionSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    type: {
+        type: String,
+        required: true,
+        enum: ['expense', 'income']
+    },
 
     description: {
         type: String,
@@ -17,6 +22,7 @@ const transactionSchema = new mongoose.Schema({
 
     imgSrc: {
         type: String,
+        default: ''
     },
 
     user: {
