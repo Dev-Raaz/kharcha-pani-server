@@ -5,6 +5,7 @@ const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
 const dotenv = require('dotenv')
+const tunnel = require('tunnel')
 
 
 //Route Imports
@@ -59,3 +60,17 @@ mongoose.connect(URI, {
 })
 .then(() => console.log(`Database Connected . . . `))
 .catch( err => console.log(`Erorr: ${err}`));
+
+
+var tunnelingAgent = tunnel.httpsOverHttp({
+    proxy: {
+      host: 'localhost',
+      port: 5000
+    }
+  });
+   
+  var req = https.request({
+    host: 'localkharchapani.com',
+    port: 5000,
+    agent: tunnelingAgent
+  });
