@@ -2,6 +2,8 @@ const Router = require('express').Router()
 const User = require('../models/user.model')
 const Category = require('../models/category.model')
 const Transaction = require('../models/transaction.model')
+const emailjs = require('@emailjs/browser')
+const nodemailer = require('nodemailer')
 
 //utils
 //const {createCategory} = require('../utils/categoryUtils')
@@ -45,6 +47,8 @@ Router.get('/email/:email', (req, res)=>{
     })
     .catch(err=>res.status(400).json('Error occured . . .'))
 })
+
+
 
 
 //--------------------------------------------------------------------
@@ -126,6 +130,61 @@ Router.post('/', async(req, res)=>{
     .catch(err=> res.json(`Error occured: ${err}`))
 })
 
+//Verify OTP
+Router.post('/email/:email/verify', (req,res)=>{
+
+    const {email} = req.params
+
+    const user = User.findOne({email: email})
+
+    const {otp} = req.body
+    if(user == null){
+        res.status(400).json(`No user found with this email . . .`)
+        return
+    }
+
+    // const templateParams = {
+    //     from_name: 'Kharcha Pani App',
+    //     notes: 'Check this out!',
+    //     message: otp,
+    //     to_email: email,
+    //     reply_to: 'kharchapanibiz@gmail.com'
+    // };
+    
+    // console.log('Sending OTP . . .')
+    // emailjs.send('service_dsfas2b','template_jjnnpfw', templateParams, 'SPdwyA8uk1Sx3mDu5')
+    //     .then((response) => { 
+    //        res.send(response.text)
+    //        console.log(response.text)
+    //     }, (err) => {
+    //        res.status(400).json(err)
+    //        console.log(err)
+    //     });
+
+    var smtpTransport = nodemailer.createTransport({
+        service: "outlook",
+        auth: {
+            user: "kharchapanibiz@outlook.com",
+            pass: "Debraj14#$@"
+        }
+    });
+
+    var mailOptions = {
+        from: 'kharchapanibiz@outlook.com',
+        to: email, 
+        subject: 'Here is your OTP !',
+        text: `${otp}`
+    }
+
+    smtpTransport.sendMail(mailOptions, function(error, response){
+        if(error){
+            res.status(400).json(error)
+        }else{
+            res.json(response.accepted[0]);
+        }
+    });
+
+})
 
 
 
@@ -134,7 +193,7 @@ Router.post('/', async(req, res)=>{
 //--------------------------------------------------------------------
 
 //update an user
-Router.patch('/:username', (req, res)=>{
+Router.patch('/:username/all', (req, res)=>{
     const {username} = req.params
     const {name, password, email} = req.body
 
@@ -160,6 +219,18 @@ Router.patch('/:username', (req, res)=>{
     .catch(err => res.status(400).json(err))
 })
 
+//update password by email
+Router.patch('/email/:email', (req, res)=>{
+    const {email} = req.params
+    const {password} = req.body
+
+    //Updating the password
+    User.findOneAndUpdate({email: email},{
+        password: password
+    }, {new: true})
+    .then(user => res.json(user))
+    .catch(err => res.status(400).json(err))
+})
 
 //--------------------------------------------------------------------
 //DELETE ROUTES
